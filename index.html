@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HWiNFO64 CSV — Визуализация журнала датчиков</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.8/cyrillic-400.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.8/cyrillic-500.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.8/cyrillic-600.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.8/cyrillic-700.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.8/cyrillic-800.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.6/cyrillic-400.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.6/cyrillic-600.css">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+
+<style>
+:root{
+  --bg:#0a0d14;
+  --card:#11151f;
+  --card2:#0e121b;
+  --border:#1e2532;
+  --border2:#2a3342;
+  --text:#e6eaf2;
+  --muted:#8b93a7;
+  --accent:#38bdf8;
+  --accent2:#818cf8;
+  --green:#34d399;
+  --red:#fb7185;
+  --yellow:#fbbf24;
+  --radius:16px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(129,140,248,.10), transparent 60%),
+    radial-gradient(900px 500px at 10% -10%, rgba(56,189,248,.10), transparent 60%),
+    var(--bg);
+  color:var(--text);
+  min-height:100vh;
+}
+.mono{font-family:'JetBrains Mono',monospace}
+
+header{
+  position:sticky;top:0;z-index:50;
+  backdrop-filter:blur(14px);
+  background:rgba(10,13,20,.78);
+  border-bottom:1px solid var(--border);
+}
+.header-in{
+  max-width:1500px;margin:0 auto;padding:14px 24px;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+}
+.logo{
+  width:42px;height:42px;border-radius:12px;flex:none;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 18px rgba(56,189,248,.35);
+}
+.logo svg{width:24px;height:24px}
+h1{font-size:18px;font-weight:800;letter-spacing:-.02em}
+h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{font-size:12px;color:var(--muted);margin-top:2px}
+#fileBadge{
+  margin-left:auto;display:none;align-items:center;gap:10px;
+  background:var(--card);border:1px solid var(--border);
+  padding:8px 14px;border-radius:12px;font-size:13px;max-width:46vw;
+}
+#fileBadge .fname{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+#fileBadge .fsize{color:var(--muted);font-size:12px}
+
+main{max-width:1500px;margin:0 auto;padding:24px}
+
+/* ---------- Dropzone ---------- */
+#dropSection{display:flex;flex-direction:column;align-items:center;padding:60px 0 80px}
+#dropzone{
+  width:100%;max-width:760px;
+  border:2px dashed var(--border2);
+  border-radius:24px;
+  background:linear-gradient(180deg,rgba(56,189,248,.04),rgba(129,140,248,.04));
+  padding:64px 32px;text-align:center;cursor:pointer;
+  transition:.25s;
+}
+#dropzone:hover,#dropzone.drag{
+  border-color:var(--accent);
+  background:linear-gradient(180deg,rgba(56,189,248,.09),rgba(129,140,248,.09));
+  transform:translateY(-2px);
+  box-shadow:0 12px 40px rgba(56,189,248,.12);
+}
+.dz-icon{
+  width:88px;height:88px;margin:0 auto 22px;border-radius:24px;
+  background:linear-gradient(135deg,rgba(56,189,248,.16),rgba(129,140,248,.16));
+  border:1px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;
+}
+.dz-icon svg{width:42px;height:42px;stroke:var(--accent)}
+#dropzone h2{font-size:22px;font-weight:700;margin-bottom:10px;letter-spacing:-.02em}
+#dropzone p{color:var(--muted);font-size:14px;line-height:1.6;max-width:520px;margin:0 auto}
+.btn-browse{
+  display:inline-flex;align-items:center;gap:8px;margin-top:24px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#0a0d14;font-weight:700;font-size:14px;
+  padding:13px 28px;border-radius:12px;border:none;cursor:pointer;
+  transition:.2s;box-shadow:0 6px 22px rgba(56,189,248,.35);
+}
+.btn-browse:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(56,189,248,.45)}
+.hints{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:34px}
+.hint{
+  display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);
+  background:var(--card);border:1px solid var(--border);padding:9px 14px;border-radius:10px;
+}
+.hint b{color:var(--text);font-weight:600}
+
+/* ---------- App layout ---------- */
+#app{display:none;grid-template-columns:330px 1fr;gap:20px;align-items:start}
+.card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;
+}
+.card-head{
+  padding:14px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.card-head h3{font-size:14px;font-weight:700;letter-spacing:.01em}
+.card-head .cnt{font-size:11.5px;color:var(--muted);background:var(--card2);border:1px solid var(--border);padding:3px 9px;border-radius:20px}
+
+/* Sidebar */
+#sidebar{position:sticky;top:86px;display:flex;flex-direction:column;max-height:calc(100vh - 110px)}
+.side-tools{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:10px}
+.search-wrap{position:relative}
+.search-wrap svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;stroke:var(--muted)}
+#sensorSearch{
+  width:100%;background:var(--card2);border:1px solid var(--border);
+  color:var(--text);padding:9px 12px 9px 34px;border-radius:10px;font-size:13px;outline:none;
+  font-family:inherit;transition:.2s;
+}
+#sensorSearch:focus{border-color:var(--accent)}
+.side-row{display:flex;gap:8px}
+#unitFilter{
+  flex:1;background:var(--card2);border:1px solid var(--border);color:var(--text);
+  padding:8px 10px;border-radius:10px;font-size:12.5px;outline:none;font-family:inherit;cursor:pointer;
+}
+.mini-btn{
+  background:var(--card2);border:1px solid var(--border);color:var(--muted);
+  font-size:11.5px;padding:8px 10px;border-radius:10px;cursor:pointer;font-family:inherit;font-weight:600;
+  transition:.15s;white-space:nowrap;
+}
+.mini-btn:hover{color:var(--text);border-color:var(--border2)}
+#sensorList{overflow-y:auto;padding:8px;flex:1}
+#sensorList::-webkit-scrollbar,#statsBodyWrap::-webkit-scrollbar{width:8px}
+#sensorList::-webkit-scrollbar-thumb,#statsBodyWrap::-webkit-scrollbar-thumb{background:var(--border2);border-radius:8px}
+.s-item{
+  display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;
+  cursor:pointer;transition:.12s;user-select:none;
+}
+.s-item:hover{background:var(--card2)}
+.s-item input{accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex:none}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;box-shadow:0 0 8px currentColor}
+.s-name{font-size:12.5px;font-weight:500;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.s-unit{font-size:10.5px;color:var(--muted);margin-top:1px}
+.s-meta{margin-left:auto;text-align:right;flex:none}
+.s-minmax{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+
+/* Content */
+#content{display:flex;flex-direction:column;gap:20px;min-width:0}
+.chart-toolbar{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+.tbtn{
+  background:var(--card2);border:1px solid var(--border);color:var(--muted);
+  font-size:12px;font-weight:600;padding:7px 13px;border-radius:9px;cursor:pointer;
+  font-family:inherit;transition:.15s;display:inline-flex;align-items:center;gap:6px;
+}
+.tbtn:hover{color:var(--text);border-color:var(--accent);background:rgba(56,189,248,.08)}
+#chartWrap{position:relative;height:460px;padding:10px 12px 14px}
+#chartEmpty{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;color:var(--muted);font-size:14px;pointer-events:none;
+}
+.zoom-hint{font-size:11.5px;color:var(--muted);padding:0 18px 12px}
+.zoom-hint kbd{
+  background:var(--card2);border:1px solid var(--border2);border-radius:5px;
+  padding:1px 6px;font-size:10.5px;font-family:'JetBrains Mono',monospace;color:var(--text);
+}
+
+/* Summary cards */
+#summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+.sum-card{
+  background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;
+  position:relative;overflow:hidden;
+}
+.sum-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));opacity:.7;
+}
+.sum-label{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.sum-value{font-size:20px;font-weight:700;margin-top:6px;font-family:'JetBrains Mono',monospace;letter-spacing:-.02em}
+.sum-sub{font-size:11.5px;color:var(--muted);margin-top:3px}
+
+/* Stats table */
+#statsBodyWrap{max-height:520px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{
+  position:sticky;top:0;background:var(--card2);z-index:5;
+  text-align:right;padding:11px 16px;font-size:11px;font-weight:700;
+  color:var(--muted);text-transform:uppercase;letter-spacing:.05em;
+  border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;
+}
+thead th:first-child,thead th:nth-child(2){text-align:left}
+thead th:hover{color:var(--text)}
+thead th.sorted{color:var(--accent)}
+tbody td{padding:9px 16px;border-bottom:1px solid rgba(30,37,50,.55);text-align:right;white-space:nowrap}
+tbody td:first-child,tbody td:nth-child(2){text-align:left;white-space:normal}
+tbody tr{cursor:pointer;transition:.1s}
+tbody tr:hover{background:rgba(56,189,248,.05)}
+tbody tr.active{background:rgba(56,189,248,.09)}
+tbody tr.active td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.t-name{display:flex;align-items:center;gap:9px;font-weight:500;line-height:1.35}
+.t-name .dot{opacity:0;transform:scale(.4);transition:.15s}
+tr.active .t-name .dot{opacity:1;transform:scale(1)}
+.t-unit{color:var(--muted);font-size:12px}
+.v-min{color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:12.5px}
+.v-avg{color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:600}
+.v-max{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:12.5px}
+.v-last{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:12.5px}
+
+/* Loading & toast */
+#loading{
+  position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;
+  background:rgba(10,13,20,.85);backdrop-filter:blur(6px);flex-direction:column;gap:18px;
+}
+.spinner{
+  width:52px;height:52px;border-radius:50%;
+  border:4px solid var(--border);border-top-color:var(--accent);
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loadStatus{color:var(--muted);font-size:14px}
+#toast{
+  position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:#2a1620;border:1px solid rgba(251,113,133,.4);color:#fecdd3;
+  padding:13px 22px;border-radius:12px;font-size:13.5px;z-index:300;
+  transition:.35s cubic-bezier(.2,.9,.3,1.2);opacity:0;max-width:90vw;
+  box-shadow:0 10px 30px rgba(0,0,0,.5);
+}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+#toast.ok{background:#12241d;border-color:rgba(52,211,153,.4);color:#a7f3d0}
+
+footer{max-width:1500px;margin:0 auto;padding:10px 24px 34px;color:var(--muted);font-size:12px;text-align:center}
+
+@media(max-width:1000px){
+  #app{grid-template-columns:1fr}
+  #sidebar{position:static;max-height:none}
+  #sensorList{max-height:340px}
+  #chartWrap{height:340px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-in">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#0a0d14" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12h4l3-8 4 16 3-8h4"/>
+      </svg>
+    </div>
+    <div>
+      <h1>HWiNFO64 <span>Sensor Viewer</span></h1>
+      <div class="sub">Загрузите CSV-журнал датчиков — получите графики и статистику</div>
+    </div>
+    <div id="fileBadge">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      <div>
+        <div class="fname" id="fbName"></div>
+        <div class="fsize mono" id="fbSize"></div>
+      </div>
+      <button class="mini-btn" id="btnNewFile" title="Загрузить другой файл">✕</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- Экран загрузки файла -->
+  <section id="dropSection">
+    <div id="dropzone">
+      <div class="dz-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <h2>Перетащите CSV-файл сюда</h2>
+      <p>Файл журнала датчиков HWiNFO64 (Sensor logging → CSV). Поддерживаются разделители «,» и «;», отдельные колонки Date/Time и повторяющиеся заголовки. Данные обрабатываются локально в браузере.</p>
+      <button class="btn-browse" id="btnBrowse">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        Выбрать файл
+      </button>
+      <div class="hints">
+        <div class="hint">📈 <b>Графики</b> с зумом и панорамированием</div>
+        <div class="hint">🔢 <b>Мин / Сред / Макс</b> по каждому датчику</div>
+        <div class="hint">⚡ Обработка <b>больших логов</b> с прореживанием</div>
+      </div>
+    </div>
+    <input type="file" id="fileInput" accept=".csv,.txt,text/csv" hidden>
+  </section>
+
+  <!-- Рабочая область -->
+  <div id="app">
+    <aside class="card" id="sidebar">
+      <div class="card-head">
+        <h3>Датчики</h3>
+        <span class="cnt" id="selCount">0 выбрано</span>
+      </div>
+      <div class="side-tools">
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" id="sensorSearch" placeholder="Поиск датчика…">
+        </div>
+        <div class="side-row">
+          <select id="unitFilter"><option value="">Все единицы</option></select>
+          <button class="mini-btn" id="btnSelAll">Выбрать все</button>
+          <button class="mini-btn" id="btnSelNone">Снять</button>
+        </div>
+      </div>
+      <div id="sensorList"></div>
+    </aside>
+
+    <section id="content">
+      <div id="summary"></div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>📈 График</h3>
+          <span class="cnt" id="chartPoints"></span>
+          <div class="chart-toolbar">
+            <button class="tbtn" id="btnResetZoom">↺ Сбросить масштаб</button>
+            <button class="tbtn" id="btnExportCsv">⬇ Статистика CSV</button>
+          </div>
+        </div>
+        <div id="chartWrap">
+          <canvas id="mainChart"></canvas>
+          <div id="chartEmpty">
+            <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#2a3342" stroke-width="1.6" stroke-linecap="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg>
+            Выберите датчики в списке слева
+          </div>
+        </div>
+        <div class="zoom-hint">💡 <kbd>Колесо мыши</kbd> — масштаб · <kbd>Перетаскивание</kbd> — сдвиг · <kbd>Shift + перетаскивание</kbd> — выбор области · <kbd>Двойной клик</kbd> — сброс</div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>📊 Статистика</h3>
+          <span class="cnt" id="statsCount"></span>
+        </div>
+        <div id="statsBodyWrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-sort="name">Датчик</th>
+                <th data-sort="unit">Ед.</th>
+                <th data-sort="min">Минимум</th>
+                <th data-sort="avg">Среднее</th>
+                <th data-sort="max">Максимум</th>
+                <th data-sort="last">Последнее</th>
+              </tr>
+            </thead>
+            <tbody id="statsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer>Все данные обрабатываются локально в вашем браузере · HWiNFO64 CSV Sensor Viewer</footer>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div id="loadStatus">Чтение файла…</div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+
+if (window.ChartZoom) Chart.register(window.ChartZoom);
+Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+
+const MAX_POINTS  = 3500;   // точек на серию после прореживания
+const MAX_DEFAULT = 6;      // сколько датчиков выбрать по умолчанию
+
+const PALETTE = ['#38bdf8','#f472b6','#34d399','#fbbf24','#a78bfa','#fb7185',
+                 '#22d3ee','#a3e635','#f97316','#60a5fa','#e879f9','#2dd4bf',
+                 '#facc15','#4ade80','#f87171','#818cf8','#fb923c','#5eead4'];
+
+let sensors = [];
+let times = null;          // Float64Array: мс (или номер отсчёта)
+let hasTime = false;
+let rowCount = 0;
+let selected = new Set();
+let mainChart = null;
+let currentFileName = '';
+let sortState = {key:'name', dir:1};
+
+const $ = id => document.getElementById(id);
+
+function fmt(v){
+  if(v===null||v===undefined||isNaN(v)) return '—';
+  const a = Math.abs(v);
+  const f = new Intl.NumberFormat('ru-RU',{maximumFractionDigits: a>=100?1:(a>=1?2:3)});
+  return f.format(v);
+}
+function fmtBytes(b){
+  if(b<1024) return b+' Б';
+  if(b<1048576) return (b/1024).toFixed(1)+' КБ';
+  return (b/1048576).toFixed(1)+' МБ';
+}
+function fmtDuration(ms){
+  if(!isFinite(ms)||ms<=0) return '—';
+  const s = Math.floor(ms/1000);
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  if(h>0) return h+' ч '+(m<10?'0':'')+m+' мин';
+  if(m>0) return m+' мин '+(sec<10?'0':'')+sec+' с';
+  return sec+' с';
+}
+function toast(msg, ok){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.toggle('ok', !!ok);
+  t.classList.add('show');
+  clearTimeout(t._tm);
+  t._tm = setTimeout(()=>t.classList.remove('show'), 4200);
+}
+function showLoading(msg){ $('loadStatus').textContent = msg; $('loading').style.display='flex'; }
+function hideLoading(){ $('loading').style.display='none'; }
+const nextFrame = () => new Promise(r=>setTimeout(r,30));
+
+/* ---------------- CSV parsing ---------------- */
+
+function detectDelimiter(firstLine){
+  let comma=0, semi=0, tab=0, inQ=false;
+  for(let i=0;i<firstLine.length;i++){
+    const c=firstLine[i];
+    if(c==='"') inQ=!inQ;
+    else if(!inQ){ if(c===',')comma++; else if(c===';')semi++; else if(c==='\t')tab++; }
+  }
+  if(semi>=comma && semi>=tab && semi>0) return ';';
+  if(tab>comma && tab>0) return '\t';
+  return ',';
+}
+
+function cleanField(f){
+  let t = f.replace(/^[\s\uFEFF]+|[\s]+$/g,'');
+  if(t.length>=2 && t[0]==='"' && t[t.length-1]==='"'){
+    t = t.slice(1,-1).replace(/""/g,'"');
+  }
+  return t;
+}
+
+function parseCSV(text, delim){
+  if(text.charCodeAt(0)===0xFEFF) text=text.slice(1);
+  const rows=[]; let row=[], field='', inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else inQ=false; }
+      else field+=c;
+    }else{
+      if(c==='"' && field.trim()===''){ field=''; inQ=true; }   // кавычка после пробела — тоже кавычка
+      else if(c===delim){ row.push(cleanField(field)); field=''; }
+      else if(c==='\n'){ row.push(cleanField(field)); rows.push(row); row=[]; field=''; }
+      else if(c!=='\r') field+=c;
+    }
+  }
+  if(field.trim()!==''||row.length>0){ row.push(cleanField(field)); rows.push(row); }
+  return rows;
+}
+
+function parseNum(s){
+  if(s==null) return NaN;
+  s=String(s).trim();
+  if(!s) return NaN;
+  if(/^(да|нет|yes|no|n\/a|ok|true|false)$/i.test(s)) return NaN;
+  s=s.replace(/\s/g,'').replace(/,/g,'.');
+  if(!/^-?\d*\.?\d+([eE][-+]?\d+)?$/.test(s)) return NaN;
+  const v=parseFloat(s);
+  return isFinite(v)?v:NaN;
+}
+
+function msFromParts(d,mo,y,h,mi,s,ms){
+  return new Date(y, mo-1, d, h||0, mi||0, s||0, ms||0).getTime();
+}
+function msGroup(g){ return g ? parseInt((g+'00').slice(0,3),10) : 0; }
+
+function parseTime(s){
+  if(s==null) return NaN;
+  s=String(s).trim();
+  if(!s) return NaN;
+  let m;
+  // 18.10.2026 21:22:13.304  /  18/10/2026  /  18-10-2026 21:22
+  m=s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})(?:[ ,T]+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?(?:[.,](\d{1,3}))?)?/);
+  if(m) return msFromParts(+m[1],+m[2],+m[3],+(m[4]||0),+(m[5]||0),+(m[6]||0),msGroup(m[7]));
+  // 2026-10-18 21:22:13.304 (ISO-подобное)
+  m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ ,T]+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?(?:[.,](\d{1,3}))?)?/);
+  if(m) return msFromParts(+m[3],+m[2],+m[1],+(m[4]||0),+(m[5]||0),+(m[6]||0),msGroup(m[7]));
+  // только время 21:22:13.304
+  m=s.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?(?:[.,](\d{1,3}))?$/);
+  if(m) return msFromParts(1,1,2000,+m[1],+m[2],+(m[3]||0),msGroup(m[4]));
+  const t=Date.parse(s);
+  return isNaN(t)?NaN:t;
+}
+
+function splitHeader(h){
+  h=(h||'').trim();
+  const m=h.match(/^(.*?)\s*\[([^\[\]]+)\]\s*$/);
+  if(m && m[1].trim()) return {name:m[1].trim(), unit:m[2].trim()};
+  return {name:h||'—', unit:''};
+}
+
+/* ---------------- File handling ---------------- */
+
+async function handleFile(file){
+  if(!file) return;
+  if(file.size > 400*1024*1024){
+    toast('⚠ Файл очень большой (>400 МБ), обработка может занять много времени');
+  }
+  currentFileName = file.name;
+  try{
+    showLoading('Чтение файла…');
+    await nextFrame();
+    const text = await file.text();
+    showLoading('Разбор CSV…');
+    await nextFrame();
+
+    const nlIdx = text.indexOf('\n');
+    const delim = detectDelimiter(nlIdx>0 ? text.slice(0,nlIdx) : text.slice(0,3000));
+    const rows = parseCSV(text, delim);
+    if(rows.length < 2) throw new Error('Файл пуст или содержит слишком мало строк');
+
+    showLoading('Поиск заголовков…');
+    await nextFrame();
+
+    // Строка заголовков: первая строка с единицами измерения в квадратных скобках
+    let hIdx = rows.findIndex(r => r.some(c => /\[[^\[\]]*\]\s*$/.test((c||'').trim()) ));
+    if(hIdx < 0) hIdx = rows.findIndex(r => /date|time|дата|время/i.test((r[0]||'')+' '+(r[1]||'')));
+    if(hIdx < 0) hIdx = 0;
+    const header = rows[hIdx];
+
+    // Определяем колонки даты/времени (HWiNFO может писать Date и Time отдельно)
+    let dtCombined=-1, dCol=-1, tCol=-1;
+    for(let i=0;i<header.length;i++){
+      const n=(header[i]||'').trim().toLowerCase();
+      if(!n) continue;
+      const hasD=/date|дата/.test(n), hasT=/time|время/.test(n);
+      if(hasD&&hasT){ if(dtCombined<0) dtCombined=i; }
+      else if(hasD){ if(dCol<0) dCol=i; }
+      else if(hasT){ if(tCol<0) tCol=i; }
+    }
+    let tMode, tIdx, excluded=new Set();
+    if(dtCombined>=0){ tMode='combined'; tIdx=[dtCombined]; }
+    else if(dCol>=0&&tCol>=0){ tMode='split'; tIdx=[dCol,tCol]; }
+    else if(dCol>=0){ tMode='date'; tIdx=[dCol]; }
+    else if(tCol>=0){ tMode='time'; tIdx=[tCol]; }
+    else { tMode='none'; tIdx=[]; }
+    tIdx.forEach(i=>excluded.add(i));
+
+    function timeFromRow(row){
+      if(tMode==='combined') return parseTime(row[tIdx[0]]);
+      if(tMode==='split'){
+        const d=(row[tIdx[0]]||'').trim(), t=(row[tIdx[1]]||'').trim();
+        if(!d && !t) return NaN;
+        if(!t) return parseTime(d);
+        if(!d) return NaN; // время без даты неоднозначно
+        let v=parseTime(d+' '+t);
+        return v;
+      }
+      if(tMode==='date'||tMode==='time') return parseTime(row[tIdx[0]]);
+      return NaN;
+    }
+
+    // Колонки-датчики (всё, кроме даты/времени)
+    const cols = [];
+    const seenNames = {};
+    for(let c=0;c<header.length;c++){
+      if(excluded.has(c)) continue;
+      const sp = splitHeader(header[c]);
+      if(!sp.name || sp.name==='—') continue;
+      const key = (sp.name+'|'+sp.unit).toLowerCase();
+      if(seenNames[key]){ seenNames[key]++; sp.name = sp.name+' ('+seenNames[key]+')'; }
+      else seenNames[key]=1;
+      cols.push({idx:c, name:sp.name, unit:sp.unit});
+    }
+    if(cols.length===0) throw new Error('В файле не найдено колонок с данными');
+
+    showLoading('Обработка данных…');
+    await nextFrame();
+
+    const headerFirst = (header[0]||'').trim().toLowerCase();
+    const candT = [];
+    const candV = cols.map(()=>[]);
+
+    for(let r=hIdx+1;r<rows.length;r++){
+      const row = rows[r];
+      if(!row || row.length<=1) continue;
+      // пропуск повторяющихся строк заголовков (HWiNFO дописывает их при возобновлении лога)
+      if(headerFirst && (row[0]||'').trim().toLowerCase()===headerFirst) continue;
+
+      let anyNum=false;
+      const vals = new Array(cols.length);
+      for(let k=0;k<cols.length;k++){
+        const v = parseNum(row[cols[k].idx]);
+        vals[k]=v;
+        if(!anyNum && !isNaN(v)) anyNum=true;
+      }
+      if(!anyNum) continue; // строка устройств, пустые и служебные строки
+
+      candT.push(timeFromRow(row));
+      for(let k=0;k<cols.length;k++) candV[k].push(vals[k]);
+    }
+
+    const candN = candT.length;
+    if(candN===0) throw new Error('В файле не найдено строк с числовыми данными');
+
+    let validT=0;
+    for(let i=0;i<candN;i++) if(!isNaN(candT[i])) validT++;
+    hasTime = validT > candN*0.5;
+
+    // Отбор строк: с корректным временем (или все, если времени нет)
+    const keep=[];
+    for(let i=0;i<candN;i++){
+      if(hasTime ? !isNaN(candT[i]) : true) keep.push(i);
+    }
+    rowCount = keep.length;
+    if(rowCount===0) throw new Error('Не удалось распознать ни одной строки с меткой времени');
+
+    times = new Float64Array(rowCount);
+    for(let k=0;k<rowCount;k++){
+      times[k] = hasTime ? candT[keep[k]] : k;
+    }
+
+    showLoading('Расчёт статистики…');
+    await nextFrame();
+
+    sensors = [];
+    for(let c=0;c<cols.length;c++){
+      const src = candV[c];
+      const vals = new Float64Array(rowCount);
+      let mn=Infinity, mx=-Infinity, sum=0, cnt=0, last=NaN;
+      for(let k=0;k<rowCount;k++){
+        const v = src[keep[k]];
+        vals[k]=v;
+        if(!isNaN(v)){
+          if(v<mn)mn=v; if(v>mx)mx=v; sum+=v; cnt++; last=v;
+        }
+      }
+      if(cnt===0) continue; // полностью нечисловые колонки (Yes/No и т.п.)
+      sensors.push({
+        name:cols[c].name, unit:cols[c].unit, values:vals,
+        min:mn, max:mx, avg:sum/cnt, last:last, count:cnt,
+        color:PALETTE[sensors.length % PALETTE.length],
+        ds:null
+      });
+    }
+    if(sensors.length===0) throw new Error('Не найдено ни одной колонки с числовыми данными');
+
+    // Выбор по умолчанию: температуры → загрузка → частоты/мощность
+    function prio(i){
+      const s=sensors[i];
+      if(s.unit==='°C' || /температур|temperature|tctl|tdie/i.test(s.name)) return 0;
+      if(s.unit==='%' && /загрузк|использован|usage|load/i.test(s.name)) return 1;
+      if(/частот|clock|frequency|мощност|power/i.test(s.name)) return 2;
+      return 3;
+    }
+    selected = new Set(
+      sensors.map((s,i)=>i).sort((a,b)=>prio(a)-prio(b)||a-b).slice(0, MAX_DEFAULT)
+    );
+
+    renderAll();
+    $('dropSection').style.display='none';
+    $('app').style.display='grid';
+    $('fileBadge').style.display='flex';
+    $('fbName').textContent = file.name;
+    $('fbSize').textContent = fmtBytes(file.size) + ' · ' + rowCount.toLocaleString('ru-RU') + ' строк';
+    hideLoading();
+    toast('✅ Файл обработан: '+sensors.length+' датчиков, '+rowCount.toLocaleString('ru-RU')+' строк'+(hasTime?'':' (время не распознано — ось по номерам отсчётов)'), true);
+  }catch(err){
+    hideLoading();
+    console.error(err);
+    toast('❌ Ошибка: ' + (err && err.message ? err.message : 'не удалось разобрать файл'));
+  }
+}
+
+/* ---------------- Downsampling (сохраняет пики) ---------------- */
+
+function downsample(sensor){
+  const vals = sensor.values;
+  const n = vals.length;
+  const valid = [];
+  for(let i=0;i<n;i++) if(!isNaN(vals[i])) valid.push(i);
+  const vn = valid.length;
+  const out = [];
+  if(vn <= MAX_POINTS){
+    for(let j=0;j<vn;j++){ const i=valid[j]; out.push({x:times[i], y:vals[i]}); }
+    return out;
+  }
+  const buckets = Math.floor(MAX_POINTS/2);
+  const size = vn/buckets;
+  for(let b=0;b<buckets;b++){
+    const s0 = Math.floor(b*size), e0 = Math.min(Math.floor((b+1)*size), vn);
+    if(s0>=e0) continue;
+    let iMin=s0, iMax=s0;
+    for(let j=s0;j<e0;j++){
+      const v = vals[valid[j]];
+      if(v < vals[valid[iMin]]) iMin=j;
+      if(v > vals[valid[iMax]]) iMax=j;
+    }
+    const order = iMin<=iMax ? [iMin,iMax] : [iMax,iMin];
+    for(const j of order){ const i=valid[j]; out.push({x:times[i], y:vals[i]}); }
+  }
+  return out;
+}
+
+/* ---------------- UI rendering ---------------- */
+
+function shortLabel(s){
+  let t = s.unit ? s.name+' ['+s.unit+']' : s.name;
+  return t.length>46 ? t.slice(0,44)+'…' : t;
+}
+
+function renderSummary(){
+  let span='—', interval='—';
+  if(hasTime && rowCount>1){
+    span = fmtDuration(times[rowCount-1]-times[0]);
+    interval = fmtDuration((times[rowCount-1]-times[0])/(rowCount-1));
+  }
+  const items = [
+    {label:'Строк в журнале', value:rowCount.toLocaleString('ru-RU'), sub:'записей данных'},
+    {label:'Датчиков найдено', value:sensors.length, sub:selected.size+' на графике'},
+    {label:'Длительность', value:span, sub: hasTime?'по меткам времени':'время не распознано'},
+    {label:'Интервал', value:interval, sub:'средний между строками'}
+  ];
+  $('summary').innerHTML = items.map(it=>`
+    <div class="sum-card">
+      <div class="sum-label">${it.label}</div>
+      <div class="sum-value">${it.value}</div>
+      <div class="sum-sub">${it.sub}</div>
+    </div>`).join('');
+}
+
+function renderSensorList(){
+  const q = $('sensorSearch').value.trim().toLowerCase();
+  const uf = $('unitFilter').value;
+  const list = $('sensorList');
+  list.innerHTML = '';
+  const frag = document.createDocumentFragment();
+
+  sensors.forEach((s,idx)=>{
+    if(q && s.name.toLowerCase().indexOf(q)<0) return;
+    if(uf && s.unit !== uf) return;
+    const el = document.createElement('label');
+    el.className='s-item';
+    el.innerHTML = `
+      <input type="checkbox" ${selected.has(idx)?'checked':''}>
+      <span class="dot" style="background:${s.color};color:${s.color}"></span>
+      <span style="min-width:0">
+        <span class="s-name" title="${s.name.replace(/"/g,'&quot;')}"></span>
+        <span class="s-unit">${s.unit?('['+s.unit+'] · '):''}${s.count.toLocaleString('ru-RU')} знач.</span>
+      </span>
+      <span class="s-meta"><span class="s-minmax">${fmt(s.min)}…${fmt(s.max)}</span></span>`;
+    el.querySelector('.s-name').textContent = s.name;
+    el.querySelector('input').addEventListener('change', e=>{
+      if(e.target.checked) selected.add(idx); else selected.delete(idx);
+      updateChart(); renderStats(); renderSummary();
+    });
+    frag.appendChild(el);
+  });
+  list.appendChild(frag);
+  if(!list.children.length){
+    list.innerHTML = '<div style="padding:26px;text-align:center;color:var(--muted);font-size:13px">Ничего не найдено</div>';
+  }
+  $('selCount').textContent = selected.size + ' выбрано';
+}
+
+function fillUnitFilter(){
+  const sel = $('unitFilter');
+  const prev = sel.value;
+  const units = [...new Set(sensors.map(s=>s.unit).filter(u=>u))].sort();
+  sel.innerHTML = '<option value="">Все единицы</option>' + units.map(u=>`<option value="${u.replace(/"/g,'&quot;')}">[${u}]</option>`).join('');
+  if(units.indexOf(prev)>=0) sel.value = prev;
+}
+
+function renderStats(){
+  const tbody = $('statsBody');
+  const rowsIdx = sensors.map((s,i)=>i);
+  const {key,dir} = sortState;
+  rowsIdx.sort((a,b)=>{
+    const sa=sensors[a], sb=sensors[b];
+    let va,vb;
+    if(key==='name'){ va=sa.name.toLowerCase(); vb=sb.name.toLowerCase(); return va<vb?-dir:(va>vb?dir:0); }
+    if(key==='unit'){ va=sa.unit; vb=sb.unit; return va<vb?-dir:(va>vb?dir:0); }
+    if(key==='last'){ va=sa.last; vb=sb.last; }
+    else { va=sa[key]; vb=sb[key]; }
+    return (va-vb)*dir;
+  });
+
+  const frag = document.createDocumentFragment();
+  rowsIdx.forEach(idx=>{
+    const s = sensors[idx];
+    const tr = document.createElement('tr');
+    if(selected.has(idx)) tr.className='active';
+    tr.innerHTML = `
+      <td><div class="t-name"><span class="dot" style="background:${s.color};color:${s.color}"></span><span></span></div></td>
+      <td class="t-unit">${s.unit||'—'}</td>
+      <td class="v-min">${fmt(s.min)}</td>
+      <td class="v-avg">${fmt(s.avg)}</td>
+      <td class="v-max">${fmt(s.max)}</td>
+      <td class="v-last">${fmt(s.last)}</td>`;
+    tr.querySelector('.t-name span:last-child').textContent = s.name;
+    tr.title = 'Клик — показать/скрыть на графике';
+    tr.addEventListener('click', ()=>{
+      if(selected.has(idx)) selected.delete(idx); else selected.add(idx);
+      updateChart(); renderStats(); renderSensorList(); renderSummary();
+    });
+    frag.appendChild(tr);
+  });
+  tbody.innerHTML='';
+  tbody.appendChild(frag);
+  $('statsCount').textContent = sensors.length + ' датчиков · клик по строке включает её на графике';
+
+  document.querySelectorAll('thead th').forEach(th=>{
+    th.classList.toggle('sorted', th.dataset.sort===key);
+    const base = {name:'Датчик',unit:'Ед.',min:'Минимум',avg:'Среднее',max:'Максимум',last:'Последнее'}[th.dataset.sort];
+    th.textContent = base + (th.dataset.sort===key ? (dir>0?' ▲':' ▼') : '');
+  });
+}
+
+/* ---------------- Chart ---------------- */
+
+function buildChart(){
+  const ctx = $('mainChart').getContext('2d');
+  mainChart = new Chart(ctx,{
+    type:'line',
+    data:{datasets:[]},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      animation:false,
+      normalized:true,
+      interaction:{mode:'index', intersect:false},
+      layout:{padding:{top:6}},
+      plugins:{
+        legend:{
+          position:'top',
+          align:'start',
+          labels:{
+            color:'#c7cede', boxWidth:14, boxHeight:3, padding:14,
+            font:{size:11.5, family:'Inter'},
+            useBorderRadius:true, borderRadius:2
+          }
+        },
+        tooltip:{
+          backgroundColor:'rgba(14,18,27,.95)',
+          borderColor:'#2a3342', borderWidth:1,
+          titleColor:'#e6eaf2', bodyColor:'#c7cede',
+          titleFont:{size:12}, bodyFont:{size:12, family:'JetBrains Mono'},
+          padding:12, boxWidth:10, boxHeight:10, useBorderRadius:true, borderRadius:10,
+          callbacks:{
+            title:(items)=>{
+              if(!items.length) return '';
+              const x = items[0].parsed.x;
+              return hasTime
+                ? new Date(x).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'})
+                : 'Отсчёт № '+Math.round(x);
+            },
+            label:(c)=>' '+c.dataset.label+': '+fmt(c.parsed.y)
+          }
+        },
+        zoom:{
+          pan:{enabled:true, mode:'x'},
+          zoom:{
+            wheel:{enabled:true, speed:0.12},
+            pinch:{enabled:true},
+            drag:{enabled:true, modifierKey:'shift', backgroundColor:'rgba(56,189,248,.12)', borderColor:'rgba(56,189,248,.5)', borderWidth:1},
+            mode:'x'
+          }
+        }
+      },
+      scales:{
+        x:{
+          type: hasTime ? 'time' : 'linear',
+          time:{
+            tooltipFormat:'dd.MM.yyyy HH:mm:ss',
+            displayFormats:{
+              millisecond:'HH:mm:ss.SSS', second:'HH:mm:ss', minute:'HH:mm',
+              hour:'dd.MM HH:mm', day:'dd.MM', week:'dd.MM', month:'MM.yyyy', quarter:'MM.yyyy', year:'yyyy'
+            }
+          },
+          title:{display:true, text: hasTime?'Время':'Номер отсчёта', color:'#8b93a7', font:{size:11.5}},
+          grid:{color:'rgba(255,255,255,.05)'},
+          ticks:{color:'#8b93a7', font:{size:11, family:'JetBrains Mono'}, maxRotation:0, autoSkipPadding:24},
+          border:{color:'#1e2532'}
+        },
+        y:{
+          grid:{color:'rgba(255,255,255,.05)'},
+          ticks:{color:'#8b93a7', font:{size:11, family:'JetBrains Mono'}, callback:v=>fmt(v)},
+          border:{color:'#1e2532'}
+        }
+      }
+    }
+  });
+  $('mainChart').addEventListener('dblclick', ()=>{ mainChart.resetZoom(); });
+}
+
+function updateChart(){
+  if(!mainChart) buildChart();
+  const datasets = [...selected].sort((a,b)=>a-b).map(idx=>{
+    const s = sensors[idx];
+    if(!s.ds) s.ds = downsample(s);
+    return {
+      label: shortLabel(s),
+      data: s.ds,
+      borderColor: s.color,
+      backgroundColor: s.color+'22',
+      borderWidth: 1.6,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      pointHoverBackgroundColor: s.color,
+      pointHoverBorderColor:'#0a0d14',
+      tension: 0.15,
+      spanGaps: true,
+      fill: false
+    };
+  });
+  mainChart.data.datasets = datasets;
+  mainChart.update('none');
+  mainChart.resetZoom();
+  $('chartEmpty').style.display = datasets.length ? 'none' : 'flex';
+  let pts = 0; datasets.forEach(d=>pts+=d.data.length);
+  $('chartPoints').textContent = datasets.length
+    ? pts.toLocaleString('ru-RU')+' точек' + (rowCount>MAX_POINTS ? ' (прорежено из '+rowCount.toLocaleString('ru-RU')+')' : '')
+    : '';
+  $('selCount').textContent = selected.size + ' выбрано';
+}
+
+/* ---------------- Export stats ---------------- */
+
+function exportStatsCsv(){
+  if(!sensors.length) return;
+  let out = '\uFEFFДатчик;Единица;Минимум;Среднее;Максимум;Последнее;Кол-во значений\n';
+  sensors.forEach(s=>{
+    const esc = v => '"'+String(v).replace(/"/g,'""')+'"';
+    out += [esc(s.name), esc(s.unit), fmt(s.min), fmt(s.avg), fmt(s.max), fmt(s.last), s.count].join(';')+'\n';
+  });
+  const blob = new Blob([out],{type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (currentFileName.replace(/\.csv$/i,'')||'hwinfo')+'_stats.csv';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500);
+  toast('✅ Статистика сохранена в CSV', true);
+}
+
+/* ---------------- Wiring ---------------- */
+
+function renderAll(){
+  fillUnitFilter();
+  renderSensorList();
+  renderSummary();
+  renderStats();
+  if(mainChart){ mainChart.destroy(); mainChart=null; }
+  buildChart();
+  updateChart();
+}
+
+$('btnBrowse').addEventListener('click', ()=> $('fileInput').click());
+$('dropzone').addEventListener('click', e=>{ if(e.target.tagName!=='BUTTON') $('fileInput').click(); });
+$('fileInput').addEventListener('change', e=>{
+  if(e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
+  e.target.value='';
+});
+$('btnNewFile').addEventListener('click', ()=>{
+  $('app').style.display='none';
+  $('dropSection').style.display='flex';
+  $('fileBadge').style.display='none';
+  $('fileInput').click();
+});
+
+const dz = $('dropzone');
+['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev, e=>{e.preventDefault(); dz.classList.add('drag');}));
+['dragleave','drop'].forEach(ev=>dz.addEventListener(ev, e=>{e.preventDefault(); dz.classList.remove('drag');}));
+dz.addEventListener('drop', e=>{
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if(f) handleFile(f);
+});
+window.addEventListener('dragover', e=>e.preventDefault());
+window.addEventListener('drop', e=>e.preventDefault());
+
+$('sensorSearch').addEventListener('input', renderSensorList);
+$('unitFilter').addEventListener('change', renderSensorList);
+$('btnSelAll').addEventListener('click', ()=>{
+  const q=$('sensorSearch').value.trim().toLowerCase(), uf=$('unitFilter').value;
+  sensors.forEach((s,i)=>{
+    if(q && s.name.toLowerCase().indexOf(q)<0) return;
+    if(uf && s.unit!==uf) return;
+    selected.add(i);
+  });
+  updateChart(); renderSensorList(); renderStats(); renderSummary();
+});
+$('btnSelNone').addEventListener('click', ()=>{
+  selected.clear();
+  updateChart(); renderSensorList(); renderStats(); renderSummary();
+});
+$('btnResetZoom').addEventListener('click', ()=>{ if(mainChart) mainChart.resetZoom(); });
+$('btnExportCsv').addEventListener('click', exportStatsCsv);
+
+document.querySelectorAll('thead th').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const k = th.dataset.sort;
+    if(sortState.key===k) sortState.dir*=-1;
+    else { sortState.key=k; sortState.dir = (k==='name'||k==='unit')?1:-1; }
+    renderStats();
+  });
+});
+
+})();
+</script>
+</body>
+</html>
